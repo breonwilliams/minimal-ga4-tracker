@@ -3,7 +3,7 @@ Contributors: breonwilliams
 Tags: analytics, google analytics, ga4, tracking, gtag
 Requires at least: 6.0
 Tested up to: 6.9
-Stable tag: 1.1.4
+Stable tag: 1.1.6
 Requires PHP: 7.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -57,6 +57,14 @@ Use the `mga4_gtag_config` filter:
 });`
 
 == Changelog ==
+
+= 1.1.6 =
+* Fix: Add upgrader_source_selection filter for robust folder renaming during all install types
+
+= 1.1.5 =
+* Fix: Resolve duplicate plugin installs caused by GitHub zipball folder naming
+* Fix: Correct post_install return value so WordPress tracks plugin destination
+* Add: GitHub Actions workflow to auto-build properly structured release ZIPs
 
 = 1.1.4 =
 * Fix: Improve update detection reliability

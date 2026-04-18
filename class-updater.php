@@ -45,6 +45,7 @@ final class MGA4_Updater {
     public function init() {
         add_filter( 'pre_set_site_transient_update_plugins', array( $this, 'check_update' ) );
         add_filter( 'plugins_api', array( $this, 'get_plugin_info' ), 10, 3 );
+        add_filter( 'upgrader_source_selection', array( $this, 'fix_source_dir' ), 10, 4 );
         add_filter( 'upgrader_post_install', array( $this, 'post_install' ), 10, 3 );
         add_action( 'admin_init', array( $this, 'maybe_clear_cache' ) );
     }
@@ -177,19 +178,74 @@ final class MGA4_Updater {
         );
     }
 
+    /**
+     * Fix the source directory name before installation.
+     * GitHub zipballs extract to "user-repo-hash/" but WordPress needs "repo/".
+     * This fires BEFORE installation, handling both automatic updates and manual uploads.
+     *
+     * @param string       $source        Path to extracted source directory.
+     * @param string       $remote_source Path to the directory containing extracted files.
+     * @param WP_Upgrader  $upgrader      WP_Upgrader instance.
+     * @param array        $hook_extra    Extra arguments passed to hooked filters.
+     * @return string|WP_Error Corrected source path or error.
+     */
+    public function fix_source_dir( $source, $remote_source, $upgrader, $hook_extra ) {
+        global $wp_filesystem;
+
+        // For automatic updates, verify this is our plugin.
+        if ( isset( $hook_extra['plugin'] ) && $hook_extra['plugin'] !== $this->plugin_basename ) {
+            return $source;
+        }
+
+        // For manual uploads, check if the main plugin file exists in the source.
+        if ( ! isset( $hook_extra['plugin'] ) ) {
+            if ( ! $wp_filesystem->exists( trailingslashit( $source ) . 'minimal-ga4-tracker.php' ) ) {
+                return $source;
+            }
+        }
+
+        // Check if rename is needed.
+        $source_slug = basename( rtrim( $source, '/' ) );
+        if ( $source_slug === $this->plugin_slug ) {
+            return $source; // Already correct.
+        }
+
+        // Rename to correct folder name.
+        $new_source = trailingslashit( dirname( $source ) ) . $this->plugin_slug;
+
+        if ( $wp_filesystem->move( $source, $new_source ) ) {
+            return trailingslashit( $new_source );
+        }
+
+        return new WP_Error(
+            'rename_failed',
+            'Minimal GA4 Tracker: Could not rename plugin folder.'
+        );
+    }
+
     public function post_install( $response, $hook_extra, $result ) {
         if ( ! isset( $hook_extra['plugin'] ) || $hook_extra['plugin'] !== $this->plugin_basename ) {
-            return $response;
+            return $result;
         }
 
         global $wp_filesystem;
 
         $plugin_dir   = WP_PLUGIN_DIR . '/' . $this->plugin_slug;
-        $installed_to = $result['destination'];
+        $installed_to = rtrim( $result['destination'], '/' );
 
+        // If the extracted folder doesn't match our expected plugin directory,
+        // we need to move it. This happens with GitHub zipball URLs where the
+        // folder is named like "breonwilliams-minimal-ga4-tracker-abc1234".
         if ( $installed_to !== $plugin_dir ) {
-            $wp_filesystem->move( $installed_to, $plugin_dir );
-            $result['destination'] = $plugin_dir;
+            // Remove the old plugin directory first so move() can succeed.
+            if ( $wp_filesystem->exists( $plugin_dir ) ) {
+                $wp_filesystem->delete( $plugin_dir, true );
+            }
+
+            $moved = $wp_filesystem->move( $installed_to, $plugin_dir );
+            if ( $moved ) {
+                $result['destination'] = $plugin_dir;
+            }
         }
 
         activate_plugin( $this->plugin_basename );
@@ -198,6 +254,6 @@ final class MGA4_Updater {
         delete_transient( $this->transient_key );
         delete_site_transient( 'update_plugins' );
 
-        return $response;
+        return $result;
     }
 }

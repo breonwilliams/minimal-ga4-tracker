@@ -1,0 +1,47 @@
+name: Build Release ZIP
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build plugin ZIP
+        run: |
+          # Create a staging directory with the correct folder name.
+          # This is critical: WordPress expects the ZIP root folder to match
+          # the plugin slug (minimal-ga4-tracker), NOT the GitHub repo format
+          # (breonwilliams-minimal-ga4-tracker-{hash}).
+          mkdir -p build/minimal-ga4-tracker
+
+          # Copy only the plugin files — no git metadata, no workflows.
+          cp minimal-ga4-tracker.php build/minimal-ga4-tracker/
+          cp class-updater.php       build/minimal-ga4-tracker/
+          cp uninstall.php           build/minimal-ga4-tracker/
+          cp readme.txt              build/minimal-ga4-tracker/
+          cp README.md               build/minimal-ga4-tracker/
+          cp LICENSE                  build/minimal-ga4-tracker/
+
+          # Create the ZIP from inside the build directory so the root
+          # folder inside the ZIP is "minimal-ga4-tracker/".
+          cd build
+          zip -r ../minimal-ga4-tracker-${{ steps.version.outputs.VERSION }}.zip minimal-ga4-tracker/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: minimal-ga4-tracker-${{ steps.version.outputs.VERSION }}.zip
+          generate_release_notes: true
