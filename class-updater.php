@@ -109,8 +109,8 @@ final class MGA4_Updater {
     }
 
     public function check_update( $transient ) {
-        if ( empty( $transient->checked ) ) {
-            return $transient;
+        if ( ! is_object( $transient ) ) {
+            $transient = new stdClass();
         }
 
         $release = $this->get_latest_release();
