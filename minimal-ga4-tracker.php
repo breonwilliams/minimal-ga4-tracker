@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Minimal GA4 Tracker
  * Description: Lightweight GA4 tracking without the bloat.
- * Version: 1.1.0
+ * Version: 1.1.1
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: Breon Williams
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'MGA4_VERSION', '1.1.0' );
+define( 'MGA4_VERSION', '1.1.1' );
 define( 'MGA4_PLUGIN_FILE', __FILE__ );
 define( 'MGA4_OPTION_KEY', 'mga4_settings' );
 
@@ -357,7 +357,7 @@ final class MGA4_Tracker {
 			'mga4-gtag',
 			'https://www.googletagmanager.com/gtag/js?id=' . esc_attr( $measurement_id ),
 			array(),
-			MGA4_VERSION,
+			null,
 			array(
 				'in_footer' => false,
 				'strategy'  => 'async',
