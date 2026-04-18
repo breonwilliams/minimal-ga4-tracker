@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Minimal GA4 Tracker
  * Description: Lightweight GA4 tracking without the bloat.
- * Version: 1.1.2
+ * Version: 1.1.3
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: Breon Williams
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'MGA4_VERSION', '1.1.2' );
+define( 'MGA4_VERSION', '1.1.3' );
 define( 'MGA4_PLUGIN_FILE', __FILE__ );
 define( 'MGA4_OPTION_KEY', 'mga4_settings' );
 
@@ -58,7 +58,7 @@ final class MGA4_Tracker {
 
 		add_action( 'admin_menu', array( $this, 'add_settings_page' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
-		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_tracking_script' ) );
+		add_action( 'wp_head', array( $this, 'output_tracking_script' ), 1 );
 		add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), array( $this, 'add_settings_link' ) );
 	}
 
@@ -314,37 +314,21 @@ final class MGA4_Tracker {
 	}
 
 	/**
-	 * Enqueue GA4 tracking script on front-end.
+	 * Output GA4 tracking script directly in head.
 	 */
-	public function enqueue_tracking_script() {
-		// Check if we have a measurement ID.
+	public function output_tracking_script() {
 		$measurement_id = $this->settings['measurement_id'];
 		if ( empty( $measurement_id ) ) {
 			return;
 		}
 
-		// Check exclusion conditions.
 		if ( $this->should_skip_tracking() ) {
 			return;
 		}
 
-		// Prevent duplicate script loading.
-		if ( wp_script_is( 'mga4-gtag', 'enqueued' ) || wp_script_is( 'mga4-gtag', 'done' ) ) {
-			return;
-		}
-
 		// Build gtag config with filter support.
-		$gtag_config = array();
+		$gtag_config = apply_filters( 'mga4_gtag_config', array(), $measurement_id );
 
-		/**
-		 * Filter the gtag config parameters.
-		 *
-		 * @param array  $gtag_config    Configuration array for gtag.
-		 * @param string $measurement_id The GA4 Measurement ID.
-		 */
-		$gtag_config = apply_filters( 'mga4_gtag_config', $gtag_config, $measurement_id );
-
-		// Build config string.
 		if ( ! empty( $gtag_config ) ) {
 			$config_json   = wp_json_encode( $gtag_config );
 			$config_string = 'gtag("config", "' . esc_js( $measurement_id ) . '", ' . $config_json . ');';
@@ -352,27 +336,17 @@ final class MGA4_Tracker {
 			$config_string = 'gtag("config", "' . esc_js( $measurement_id ) . '");';
 		}
 
-		// Register and enqueue the gtag script with async loading.
-		wp_register_script(
-			'mga4-gtag',
-			'https://www.googletagmanager.com/gtag/js?id=' . esc_attr( $measurement_id ),
-			array(),
-			null,
-			array(
-				'in_footer' => false,
-				'strategy'  => 'async',
-			)
-		);
-
-		// Add inline initialization script.
-		$inline_script = 'window.dataLayer = window.dataLayer || [];' .
-			'function gtag(){dataLayer.push(arguments);}' .
-			'gtag("js", new Date());' .
-			$config_string;
-
-		wp_add_inline_script( 'mga4-gtag', $inline_script );
-
-		wp_enqueue_script( 'mga4-gtag' );
+		// Output exactly as Google specifies.
+		?>
+<!-- Google tag (gtag.js) - Minimal GA4 Tracker -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=<?php echo esc_attr( $measurement_id ); ?>"></script>
+<script>
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+<?php echo $config_string . "\n"; ?>
+</script>
+		<?php
 	}
 }
 

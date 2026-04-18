@@ -3,7 +3,7 @@ Contributors: breonwilliams
 Tags: analytics, google analytics, ga4, tracking, gtag
 Requires at least: 6.0
 Tested up to: 6.9
-Stable tag: 1.1.2
+Stable tag: 1.1.3
 Requires PHP: 7.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -57,6 +57,9 @@ Use the `mga4_gtag_config` filter:
 });`
 
 == Changelog ==
+
+= 1.1.3 =
+* Fix: Output gtag in head with async attribute for Google tag detection compatibility
 
 = 1.1.2 =
 * Fix: Resolve phantom update notification after upgrading
