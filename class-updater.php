@@ -24,6 +24,24 @@ final class MGA4_Updater {
         $this->plugin_slug     = dirname( $this->plugin_basename );
     }
 
+    /**
+     * Get the actual installed version by reading the plugin file header.
+     * This ensures we compare against the version on disk, not the in-memory version.
+     *
+     * @return string The installed plugin version.
+     */
+    private function get_installed_version() {
+        if ( ! function_exists( 'get_plugin_data' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+        $plugin_file = WP_PLUGIN_DIR . '/' . $this->plugin_basename;
+        if ( file_exists( $plugin_file ) ) {
+            $plugin_data = get_plugin_data( $plugin_file, false, false );
+            return $plugin_data['Version'] ?? $this->current_version;
+        }
+        return $this->current_version;
+    }
+
     public function init() {
         add_filter( 'pre_set_site_transient_update_plugins', array( $this, 'check_update' ) );
         add_filter( 'plugins_api', array( $this, 'get_plugin_info' ), 10, 3 );
@@ -103,7 +121,9 @@ final class MGA4_Updater {
         $remote_version = $this->get_remote_version( $release );
         $download_url   = $this->get_download_url( $release );
 
-        if ( version_compare( $remote_version, $this->current_version, '>' ) && $download_url ) {
+        $installed_version = $this->get_installed_version();
+
+        if ( version_compare( $remote_version, $installed_version, '>' ) && $download_url ) {
             $transient->response[ $this->plugin_basename ] = (object) array(
                 'slug'        => $this->plugin_slug,
                 'plugin'      => $this->plugin_basename,
@@ -119,7 +139,7 @@ final class MGA4_Updater {
             $transient->no_update[ $this->plugin_basename ] = (object) array(
                 'slug'        => $this->plugin_slug,
                 'plugin'      => $this->plugin_basename,
-                'new_version' => $this->current_version,
+                'new_version' => $installed_version,
                 'url'         => $release['html_url'] ?? '',
                 'package'     => '',
             );
